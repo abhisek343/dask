@@ -214,7 +214,10 @@ def convert_legacy_task(
         new: object
         for a in args:
             if isinstance(a, dict):
-                new = Dict(a)
+                parsed_dict = {
+                    k: convert_legacy_task(None, v, all_keys) for k, v in a.items()
+                }
+                new = Dict(parsed_dict)
             else:
                 new = convert_legacy_task(None, a, all_keys)
             new_args.append(new)
@@ -247,6 +250,16 @@ def convert_legacy_task(
                 return Task(key, _identity_cast, *parsed_args, typ=type(task))
             else:
                 return cast(_T, type(task)(parsed_args))
+    elif isinstance(task, dict):
+        parsed_dict = {
+            k: convert_legacy_task(None, v, all_keys) for k, v in task.items()
+        }
+        if any(isinstance(v, GraphNode) for v in parsed_dict.values()):
+            container = Dict(parsed_dict)
+            if key is None:
+                return container
+            return Task(key, dict, container)
+        return task
     elif _is_dask_future(task):
         if key is None:
             return Alias(task.key)  # type: ignore[attr-defined]
